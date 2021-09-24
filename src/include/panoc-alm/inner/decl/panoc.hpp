@@ -170,21 +170,21 @@ class PANOCSolverFull {
     using ProgressInfo = PANOCFullProgressInfo;
 
     PANOCSolverFull(Params params,
-                PANOCDirection<DirectionProvider> &&direction_provider)
+                    PANOCDirection<DirectionProvider> &&direction_provider)
         : params(params), direction_provider(std::move(direction_provider)) {}
     PANOCSolverFull(Params params,
-                const PANOCDirection<DirectionProvider> &direction_provider)
+                    const PANOCDirection<DirectionProvider> &direction_provider)
         : params(params), direction_provider(direction_provider) {}
 
-    Stats operator()(const ProblemFull &problem,        // in
-                     crvec Σ1,                       // in
-                     crvec Σ2,                       // in
+    Stats operator()(const ProblemFull &problem,    // in
+                     crvec Σ1,                      // in
+                     crvec Σ2,                      // in
                      real_t ε,                      // in
                      bool always_overwrite_results, // in
                      rvec x,                        // inout
                      rvec y,                        // inout
                      rvec err_z1,
-                     rvec err_z2);                   // out
+                     rvec err_z2); // out
 
     PANOCSolverFull &
     set_progress_callback(std::function<void(const ProgressInfo &)> cb) {
@@ -210,8 +210,8 @@ class PANOCSolverFull {
 template <class InnerSolver>
 struct InnerStatsAccumulator;
 
-template <class DirectionProvider, template <typename> class PANOCSolverT>
-struct InnerStatsAccumulator<PANOCSolverT<DirectionProvider>> {
+template <class DirectionProvider>
+struct InnerStatsAccumulator<PANOCSolver<DirectionProvider>> {
     std::chrono::microseconds elapsed_time;
     unsigned iterations          = 0;
     unsigned linesearch_failures = 0;
@@ -222,10 +222,37 @@ struct InnerStatsAccumulator<PANOCSolverT<DirectionProvider>> {
     real_t sum_τ                 = 0;
 };
 
-template <class DirectionProvider, template <typename> class PANOCSolverT>
-inline InnerStatsAccumulator<PANOCSolverT<DirectionProvider>> &
-operator+=(InnerStatsAccumulator<PANOCSolverT<DirectionProvider>> &acc,
-           const typename PANOCSolverT<DirectionProvider>::Stats s) {
+template <class DirectionProvider>
+inline InnerStatsAccumulator<PANOCSolver<DirectionProvider>> &
+operator+=(InnerStatsAccumulator<PANOCSolver<DirectionProvider>> &acc,
+           const typename PANOCSolver<DirectionProvider>::Stats s) {
+    acc.iterations += s.iterations;
+    acc.elapsed_time += s.elapsed_time;
+    acc.linesearch_failures += s.linesearch_failures;
+    acc.lbfgs_failures += s.lbfgs_failures;
+    acc.lbfgs_rejected += s.lbfgs_rejected;
+    acc.τ_1_accepted += s.τ_1_accepted;
+    acc.count_τ += s.count_τ;
+    acc.sum_τ += s.sum_τ;
+    return acc;
+}
+
+template <class DirectionProvider>
+struct InnerStatsAccumulator<PANOCSolverFull<DirectionProvider>> {
+    std::chrono::microseconds elapsed_time;
+    unsigned iterations          = 0;
+    unsigned linesearch_failures = 0;
+    unsigned lbfgs_failures      = 0;
+    unsigned lbfgs_rejected      = 0;
+    unsigned τ_1_accepted        = 0;
+    unsigned count_τ             = 0;
+    real_t sum_τ                 = 0;
+};
+
+template <class DirectionProvider>
+inline InnerStatsAccumulator<PANOCSolverFull<DirectionProvider>> &
+operator+=(InnerStatsAccumulator<PANOCSolverFull<DirectionProvider>> &acc,
+           const typename PANOCSolverFull<DirectionProvider>::Stats s) {
     acc.iterations += s.iterations;
     acc.elapsed_time += s.elapsed_time;
     acc.linesearch_failures += s.linesearch_failures;

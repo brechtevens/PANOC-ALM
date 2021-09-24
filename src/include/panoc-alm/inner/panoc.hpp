@@ -352,8 +352,10 @@ PANOCSolverFull<DirectionProviderT>::operator()(
         x̂ₖ(n),    // Value of x after a projected gradient step
         xₖ₊₁(n),  // xₖ for next iteration
         x̂ₖ₊₁(n),  // x̂ₖ for next iteration
-        ŷx̂ₖ(m1),   // ŷ(x̂ₖ) = Σ (g(x̂ₖ) - ẑₖ)
-        ŷx̂ₖ₊₁(m1), // ŷ(x̂ₖ) for next iteration
+        ŷx̂ₖ1(m1),   // ŷ(x̂ₖ) = Σ (g1(x̂ₖ) - ẑₖ)
+        ŷx̂ₖ2(m2),   // ŷ(x̂ₖ) = Σ (g2(x̂ₖ) - ẑₖ)
+        ŷx̂ₖ₊₁1(m1), // ŷ(x̂ₖ) for next iteration
+        ŷx̂ₖ₊₁2(m2), // ŷ(x̂ₖ) for next iteration
         pₖ(n),    // Projected gradient step pₖ = x̂ₖ - xₖ
         pₖ₊₁(n), // Projected gradient step pₖ₊₁ = x̂ₖ₊₁ - xₖ₊₁
         qₖ(n),   // Newton step Hₖ pₖ
@@ -432,7 +434,7 @@ PANOCSolverFull<DirectionProviderT>::operator()(
     // Calculate x̂₀, p₀ (projected gradient step)
     calc_x̂(γₖ, xₖ, grad_ψₖ, /* in ⟹ out */ x̂ₖ, pₖ);
     // Calculate ψ(x̂ₖ) and ŷ(x̂ₖ)
-    real_t ψx̂ₖ        = calc_ψ_ŷ(x̂ₖ, /* in ⟹ out */ ŷx̂ₖ);
+    real_t ψx̂ₖ        = calc_ψ_ŷ(x̂ₖ, /* in ⟹ out */ ŷx̂ₖ1, ŷx̂ₖ2);
     real_t grad_ψₖᵀpₖ = grad_ψₖ.dot(pₖ);
     real_t pₖᵀpₖ      = pₖ.squaredNorm();
     // Compute forward-backward envelope
@@ -447,7 +449,7 @@ PANOCSolverFull<DirectionProviderT>::operator()(
             // Decrease step size until quadratic upper bound is satisfied
             real_t old_γₖ =
                 descent_lemma(xₖ, ψₖ, grad_ψₖ,
-                              /* in ⟹ out */ x̂ₖ, pₖ, ŷx̂ₖ,
+                              /* in ⟹ out */ x̂ₖ, pₖ, ŷx̂ₖ1, ŷx̂ₖ2,
                               /* inout */ ψx̂ₖ, pₖᵀpₖ, grad_ψₖᵀpₖ, Lₖ, γₖ);
             if (k > 0 && γₖ != old_γₖ) // Flush L-BFGS if γ changed
                 direction_provider.changed_γ(γₖ, old_γₖ);
@@ -457,7 +459,7 @@ PANOCSolverFull<DirectionProviderT>::operator()(
                 φₖ = ψₖ + 1 / (2 * γₖ) * pₖᵀpₖ + grad_ψₖᵀpₖ;
         }
         // Calculate ∇ψ(x̂ₖ)
-        calc_grad_ψ_from_ŷ(x̂ₖ, ŷx̂ₖ, /* in ⟹ out */ grad_̂ψₖ);
+        calc_grad_ψ_from_ŷ(x̂ₖ, ŷx̂ₖ1, ŷx̂ₖ2, /* in ⟹ out */ grad_̂ψₖ);
 
         // Check stop condition ------------------------------------------------
         real_t εₖ = detail::calc_error_stop_crit(params.stop_crit, pₖ, γₖ, xₖ,
@@ -483,7 +485,7 @@ PANOCSolverFull<DirectionProviderT>::operator()(
                 always_overwrite_results) {
                 calc_err_z(x̂ₖ, /* in ⟹ out */ err_z1, err_z2);
                 x = std::move(x̂ₖ);
-                y = std::move(ŷx̂ₖ);
+                y = std::move(ŷx̂ₖ1);
             }
             s.iterations   = k;
             s.ε            = εₖ;
@@ -542,7 +544,7 @@ PANOCSolverFull<DirectionProviderT>::operator()(
             // Calculate x̂ₖ₊₁, pₖ₊₁ (projected gradient step in xₖ₊₁)
             calc_x̂(γₖ₊₁, xₖ₊₁, grad_ψₖ₊₁, /* in ⟹ out */ x̂ₖ₊₁, pₖ₊₁);
             // Calculate ψ(x̂ₖ₊₁) and ŷ(x̂ₖ₊₁)
-            ψx̂ₖ₊₁ = calc_ψ_ŷ(x̂ₖ₊₁, /* in ⟹ out */ ŷx̂ₖ₊₁);
+            ψx̂ₖ₊₁ = calc_ψ_ŷ(x̂ₖ₊₁, /* in ⟹ out */ ŷx̂ₖ₊₁1, ŷx̂ₖ₊₁2);
 
             // Quadratic upper bound -------------------------------------------
             grad_ψₖ₊₁ᵀpₖ₊₁ = grad_ψₖ₊₁.dot(pₖ₊₁);
@@ -552,7 +554,7 @@ PANOCSolverFull<DirectionProviderT>::operator()(
             if (params.update_lipschitz_in_linesearch == true) {
                 // Decrease step size until quadratic upper bound is satisfied
                 (void)descent_lemma(xₖ₊₁, ψₖ₊₁, grad_ψₖ₊₁,
-                                    /* in ⟹ out */ x̂ₖ₊₁, pₖ₊₁, ŷx̂ₖ₊₁,
+                                    /* in ⟹ out */ x̂ₖ₊₁, pₖ₊₁, ŷx̂ₖ₊₁1, ŷx̂ₖ₊₁2,
                                     /* inout */ ψx̂ₖ₊₁, pₖ₊₁ᵀpₖ₊₁,
                                     grad_ψₖ₊₁ᵀpₖ₊₁, Lₖ₊₁, γₖ₊₁);
             }
@@ -599,7 +601,8 @@ PANOCSolverFull<DirectionProviderT>::operator()(
 
         xₖ.swap(xₖ₊₁);
         x̂ₖ.swap(x̂ₖ₊₁);
-        ŷx̂ₖ.swap(ŷx̂ₖ₊₁);
+        ŷx̂ₖ1.swap(ŷx̂ₖ₊₁1);
+        ŷx̂ₖ2.swap(ŷx̂ₖ₊₁2);
         pₖ.swap(pₖ₊₁);
         grad_ψₖ.swap(grad_ψₖ₊₁);
         grad_ψₖᵀpₖ = grad_ψₖ₊₁ᵀpₖ₊₁;
