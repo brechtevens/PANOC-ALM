@@ -911,7 +911,7 @@ PYBIND11_MODULE(PANOCPY_MODULE_NAME, m) {
         .def("__str__", &pa::PolymorphicALMSolver::get_name)
         .def_property_readonly("params", &pa::PolymorphicALMSolver::get_params);
 
-    using ALMFull = pa::ALMSolverFull<>;
+    using ALMFull = pa::ALMSolverFull<pa::PANOCSolverFull<pa::LBFGS>>;
     py::class_<ALMFull>(m, "ALMSolverFull",
                         "Main augmented Lagrangian solver.\n\n"
                         "C++ documentation: :cpp:class:`pa::ALMSolverFull`")
@@ -937,8 +937,9 @@ PYBIND11_MODULE(PANOCPY_MODULE_NAME, m) {
                         "Length of y does not match problem size problem.m");
 
                 auto stats = solver(p, *y, *x);
-                return std::make_tuple(std::move(*x), std::move(*y),
-                                       stats_to_dict(stats));
+                return std::make_tuple(
+                    std::move(*x), std::move(*y),
+                    pa::stats_to_dict<ALMFull::InnerSolver>(stats));
             },
             "problem"_a, "x"_a = std::nullopt, "y"_a = std::nullopt,
             py::call_guard<py::scoped_ostream_redirect,

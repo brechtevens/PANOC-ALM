@@ -207,8 +207,8 @@ class PANOCSolverFull {
     PANOCDirection<DirectionProvider> direction_provider;
 };
 
-template <class InnerSolver>
-struct InnerStatsAccumulator;
+// template <class InnerSolver>
+// struct InnerStatsAccumulator;
 
 template <class DirectionProvider>
 struct InnerStatsAccumulator<PANOCSolver<DirectionProvider>> {
