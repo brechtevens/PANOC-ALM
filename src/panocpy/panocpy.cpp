@@ -185,7 +185,7 @@ PYBIND11_MODULE(PANOCPY_MODULE_NAME, m) {
     py::class_<pa::ProblemFull>(m, "ProblemFull",
                             "C++ documentation: :cpp:class:`pa::ProblemFull`")
         // .def(py::init())
-        .def(py::init<unsigned, unsigned>(), "n"_a, "m1"_a, "m2"_a,
+        .def(py::init<unsigned, unsigned, unsigned>(), "n"_a, "m1"_a, "m2"_a,
              ":param n: Number of unknowns\n"
              ":param m1: Number of ALM constraints\n"
              ":param m2: Number of quadratic penalty constraints")
@@ -234,21 +234,21 @@ PYBIND11_MODULE(PANOCPY_MODULE_NAME, m) {
     py::class_<pa::ProblemFullWithParam>(m, "ProblemFullWithParam",
                             "C++ documentation: :cpp:class:`pa::ProblemFullWithParam`")
         // .def(py::init())
-        .def(py::init<unsigned, unsigned>(), "n"_a, "m1"_a, "m2"_a,
+        .def(py::init<unsigned, unsigned, unsigned>(), "n"_a, "m1"_a, "m2"_a,
              ":param n: Number of unknowns\n"
              ":param m1: Number of ALM constraints\n"
              ":param m2: Number of quadratic penalty constraints")
-        .def_readwrite("n", &pa::ProblemFull::n,
+        .def_readwrite("n", &pa::ProblemFullWithParam::n,
                        "Number of unknowns, dimension of :math:`x`")
         .def_readwrite(
-            "m1", &pa::ProblemFull::m1,
+            "m1", &pa::ProblemFullWithParam::m1,
             "Number of general constraints, dimension of :math:`g1(x)`")
         .def_readwrite(
-            "m2", &pa::ProblemFull::m2,
+            "m2", &pa::ProblemFullWithParam::m2,
             "Number of general constraints, dimension of :math:`g2(x)`")
-        .def_readwrite("C", &pa::ProblemFull::C, "Box constraints on :math:`x`")
-        .def_readwrite("D1", &pa::ProblemFull::D1, "Box constraints on :math:`g1(x)`")
-        .def_readwrite("D2", &pa::ProblemFull::D2, "Box constraints on :math:`g2(x)`")
+        .def_readwrite("C", &pa::ProblemFullWithParam::C, "Box constraints on :math:`x`")
+        .def_readwrite("D1", &pa::ProblemFullWithParam::D1, "Box constraints on :math:`g1(x)`")
+        .def_readwrite("D2", &pa::ProblemFullWithParam::D2, "Box constraints on :math:`g2(x)`")
         .def_property("f", prob_full_getter_f(), prob_full_setter_f(),
                       "Objective funcion, :math:`f(x)`")
         .def_property(
