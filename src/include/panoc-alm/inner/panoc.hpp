@@ -332,7 +332,9 @@ PANOCSolverFull<DirectionProviderT>::operator()(
     /// [inout] Lagrange multipliers @f$ y @f$
     rvec y,
     /// [out]   Slack variable error @f$ g(x) - z @f$
-    rvec err_z) {
+    rvec err_z1,
+    /// [out]   Slack variable error @f$ g(x) - z @f$
+    rvec err_z2) {
 
     auto start_time = std::chrono::steady_clock::now();
     Stats s;
@@ -479,7 +481,7 @@ PANOCSolverFull<DirectionProviderT>::operator()(
             if (stop_status == SolverStatus::Converged ||
                 stop_status == SolverStatus::Interrupted ||
                 always_overwrite_results) {
-                calc_err_z(x̂ₖ, /* in ⟹ out */ err_z);
+                calc_err_z(x̂ₖ, /* in ⟹ out */ err_z1, err_z2);
                 x = std::move(x̂ₖ);
                 y = std::move(ŷx̂ₖ);
             }
