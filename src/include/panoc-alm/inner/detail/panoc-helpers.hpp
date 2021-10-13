@@ -333,9 +333,10 @@ inline real_t descent_lemma(
     ///         which is mathematically impossible but could occur in finite
     ///         precision floating point arithmetic.
     real_t rounding_tolerance,
-    /// [in]    Minimum allowed step size (prevents infinite loop if function or
-    ///         are discontinuous)
-    real_t γ_min,
+    /// [in]    Maximum allowed Lipschitz constant estimate (prevents infinite
+    ///         loop if function or derivatives are discontinuous, and keeps
+    ///         step size bounded away from zero).
+    real_t L_max,
     /// [in]    Current iterate @f$ x^k @f$
     crvec xₖ,
     /// [in]    Objective function @f$ \psi(x^k) @f$
@@ -366,7 +367,7 @@ inline real_t descent_lemma(
     real_t old_γₖ = γₖ;
     real_t margin = (1 + std::abs(ψₖ)) * rounding_tolerance;
     while (ψx̂ₖ - ψₖ > grad_ψₖᵀpₖ + 0.5 * Lₖ * norm_sq_pₖ + margin) {
-        if (not(γₖ >= γ_min))
+        if (not(Lₖ * 2 <= L_max))
             break;
 
         Lₖ *= 2;
@@ -567,6 +568,8 @@ inline void calc_augmented_lagrangian_hessian_prod_fd(
     Hv /= h;
 }
 
+/// Estimate the Lipschitz constant of the gradient @f$ \nabla \psi @f$ using
+/// finite differences.
 inline real_t initial_lipschitz_estimate(
     /// [in]    Problem description
     const Problem &problem,
@@ -580,6 +583,10 @@ inline real_t initial_lipschitz_estimate(
     real_t ε,
     /// [in]    Minimum absolute finite difference step size
     real_t δ,
+    /// [in]    Minimum allowed Lipschitz estimate.
+    real_t L_min,
+    /// [in]    Maximum allowed Lipschitz estimate.
+    real_t L_max,
     /// [out]   @f$ \psi(x^k) @f$
     real_t &ψ,
     /// [out]   Gradient @f$ \nabla \psi(x^k) @f$
@@ -603,11 +610,53 @@ inline real_t initial_lipschitz_estimate(
     ψ = calc_ψ_grad_ψ(problem, xₖ, y, Σ, /* in ⟹ out */ grad_ψ, work_n1,
                       work_m);
 
-    // Estimate Lipschitz constant
+    // Estimate Lipschitz constant using finite differences
     real_t L = (work_n2 - grad_ψ).norm() / norm_h;
-    if (L < std::numeric_limits<real_t>::epsilon())
-        L = std::numeric_limits<real_t>::epsilon();
-    return L;
+    return std::clamp(L, L_min, L_max);
+}
+
+/// Estimate the Lipschitz constant of the gradient @f$ \nabla \psi @f$ using
+/// finite differences.
+inline real_t initial_lipschitz_estimate(
+    /// [in]    Problem description
+    const Problem &problem,
+    /// [in]    Current iterate @f$ x^k @f$
+    crvec xₖ,
+    /// [in]    Lagrange multipliers @f$ y @f$
+    crvec y,
+    /// [in]    Penalty weights @f$ \Sigma @f$
+    crvec Σ,
+    /// [in]    Finite difference step size relative to xₖ
+    real_t ε,
+    /// [in]    Minimum absolute finite difference step size
+    real_t δ,
+    /// [in]    Minimum allowed Lipschitz estimate.
+    real_t L_min,
+    /// [in]    Maximum allowed Lipschitz estimate.
+    real_t L_max,
+    /// [out]   Gradient @f$ \nabla \psi(x^k) @f$
+    rvec grad_ψ,
+    ///         Dimension n
+    rvec work_n1,
+    ///         Dimension n
+    rvec work_n2,
+    ///         Dimension n
+    rvec work_n3,
+    ///         Dimension m
+    rvec work_m) {
+
+    auto h        = (xₖ * ε).cwiseAbs().cwiseMax(δ);
+    work_n1       = xₖ + h;
+    real_t norm_h = h.norm();
+    // Calculate ∇ψ(x₀ + h)
+    calc_grad_ψ(problem, work_n1, y, Σ, /* in ⟹ out */ work_n2, work_n3,
+                work_m);
+    // Calculate ∇ψ(x₀)
+    calc_grad_ψ(problem, xₖ, y, Σ, /* in ⟹ out */ grad_ψ, work_n1, work_m);
+
+    // Estimate Lipschitz constant using finite differences
+    real_t L = (work_n2 - grad_ψ).norm() / norm_h;
+    return std::clamp(L, L_min, L_max);
 }
 
 inline real_t initial_lipschitz_estimate(

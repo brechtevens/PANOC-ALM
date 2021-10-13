@@ -1,7 +1,7 @@
 #include <panoc-alm/inner/decl/panoc-stop-crit.hpp>
 #include <panoc-alm/inner/decl/panoc.hpp>
-#include <panoc-alm/inner/decl/structured-panoc-lbfgs.hpp>
 #include <panoc-alm/inner/decl/second-order-panoc.hpp>
+#include <panoc-alm/inner/decl/structured-panoc-lbfgs.hpp>
 #include <panoc-alm/inner/guarded-aa-pga.hpp>
 #include <panoc-alm/inner/lbfgspp.hpp>
 #include <panoc-alm/inner/pga.hpp>
@@ -16,7 +16,7 @@
 
 #include <sstream>
 
-inline YAML::Emitter &operator<<(YAML::Emitter &out, const pa::vec &v) {
+inline YAML::Emitter &operator<<(YAML::Emitter &out, pa::crvec v) {
     out << YAML::Flow;
     out << YAML::BeginSeq;
     for (pa::vec::Index i = 0; i < v.size(); ++i)
@@ -105,7 +105,8 @@ inline YAML::Emitter &operator<<(YAML::Emitter &out, const pa::PANOCParams &p) {
     out << YAML::Key << "max_iter" << YAML::Value << p.max_iter;
     out << YAML::Key << "max_time" << YAML::Value << p.max_time.count();
     out << YAML::Key << "τ_min" << YAML::Value << p.τ_min;
-    out << YAML::Key << "γ_min" << YAML::Value << p.γ_min;
+    out << YAML::Key << "L_min" << YAML::Value << p.L_min;
+    out << YAML::Key << "L_max" << YAML::Value << p.L_max;
     out << YAML::Key << "stop_crit" << YAML::Value << p.stop_crit;
     out << YAML::Key << "update_lipschitz_in_linesearch" << YAML::Value
         << p.update_lipschitz_in_linesearch;
@@ -147,10 +148,26 @@ inline YAML::Emitter &operator<<(YAML::Emitter &out, const pa::ALMParams &p) {
     return out;
 }
 
-template <class DirectionProvider>
+inline YAML::Emitter &
+operator<<(YAML::Emitter &out,
+           const pa::InnerStatsAccumulator<pa::PANOCStats> &s) {
+    out << YAML::BeginMap;
+    out << YAML::Key << "elapsed_time" << YAML::Value << s.elapsed_time.count();
+    out << YAML::Key << "iterations" << YAML::Value << s.iterations;
+    out << YAML::Key << "linesearch_failures" << YAML::Value
+        << s.linesearch_failures;
+    out << YAML::Key << "lbfgs_failures" << YAML::Value << s.lbfgs_failures;
+    out << YAML::Key << "lbfgs_rejected" << YAML::Value << s.lbfgs_rejected;
+    out << YAML::Key << "τ_1_accepted" << YAML::Value << s.τ_1_accepted;
+    out << YAML::Key << "sum_τ" << YAML::Value << s.sum_τ;
+    out << YAML::Key << "count_τ" << YAML::Value << s.count_τ;
+    out << YAML::EndMap;
+    return out;
+}
+
 inline YAML::Emitter &operator<<(
     YAML::Emitter &out,
-    const pa::InnerStatsAccumulator<pa::PANOCSolver<DirectionProvider>> &s) {
+    const pa::InnerStatsAccumulator<pa::StructuredPANOCLBFGSSolver::Stats> &s) {
     out << YAML::BeginMap;
     out << YAML::Key << "elapsed_time" << YAML::Value << s.elapsed_time.count();
     out << YAML::Key << "iterations" << YAML::Value << s.iterations;
@@ -167,24 +184,7 @@ inline YAML::Emitter &operator<<(
 
 inline YAML::Emitter &
 operator<<(YAML::Emitter &out,
-           const pa::InnerStatsAccumulator<pa::StructuredPANOCLBFGSSolver> &s) {
-    out << YAML::BeginMap;
-    out << YAML::Key << "elapsed_time" << YAML::Value << s.elapsed_time.count();
-    out << YAML::Key << "iterations" << YAML::Value << s.iterations;
-    out << YAML::Key << "linesearch_failures" << YAML::Value
-        << s.linesearch_failures;
-    out << YAML::Key << "lbfgs_failures" << YAML::Value << s.lbfgs_failures;
-    out << YAML::Key << "lbfgs_rejected" << YAML::Value << s.lbfgs_rejected;
-    out << YAML::Key << "τ_1_accepted" << YAML::Value << s.τ_1_accepted;
-    out << YAML::Key << "sum_τ" << YAML::Value << s.sum_τ;
-    out << YAML::Key << "count_τ" << YAML::Value << s.count_τ;
-    out << YAML::EndMap;
-    return out;
-}
-
-inline YAML::Emitter &
-operator<<(YAML::Emitter &out,
-           const pa::InnerStatsAccumulator<pa::PGASolver> &s) {
+           const pa::InnerStatsAccumulator<pa::PGASolver::Stats> &s) {
     out << YAML::BeginMap;
     out << YAML::Key << "elapsed_time" << YAML::Value << s.elapsed_time.count();
     out << YAML::Key << "iterations" << YAML::Value << s.iterations;
@@ -194,7 +194,7 @@ operator<<(YAML::Emitter &out,
 
 inline YAML::Emitter &
 operator<<(YAML::Emitter &out,
-           const pa::InnerStatsAccumulator<pa::GAAPGASolver> &s) {
+           const pa::InnerStatsAccumulator<pa::GAAPGASolver::Stats> &s) {
     out << YAML::BeginMap;
     out << YAML::Key << "elapsed_time" << YAML::Value << s.elapsed_time.count();
     out << YAML::Key << "iterations" << YAML::Value << s.iterations;
@@ -204,9 +204,9 @@ operator<<(YAML::Emitter &out,
     return out;
 }
 
-inline YAML::Emitter &
-operator<<(YAML::Emitter &out,
-           const pa::InnerStatsAccumulator<pa::SecondOrderPANOCSolver> &s) {
+inline YAML::Emitter &operator<<(
+    YAML::Emitter &out,
+    const pa::InnerStatsAccumulator<pa::SecondOrderPANOCSolver::Stats> &s) {
     out << YAML::BeginMap;
     out << YAML::Key << "elapsed_time" << YAML::Value << s.elapsed_time.count();
     out << YAML::Key << "iterations" << YAML::Value << s.iterations;
@@ -220,10 +220,9 @@ operator<<(YAML::Emitter &out,
     return out;
 }
 
-template <template <class> class LineSearchT>
 inline YAML::Emitter &
 operator<<(YAML::Emitter &out,
-           const pa::InnerStatsAccumulator<pa::LBFGSBSolver<LineSearchT>> &s) {
+           const pa::InnerStatsAccumulator<pa::LBFGSBStats> &s) {
     out << YAML::BeginMap;
     out << YAML::Key << "elapsed_time" << YAML::Value << s.elapsed_time.count();
     out << YAML::Key << "iterations" << YAML::Value << s.iterations;

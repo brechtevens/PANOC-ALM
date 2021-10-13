@@ -26,8 +26,10 @@ struct StructuredPANOCLBFGSParams {
     std::chrono::microseconds max_time = std::chrono::minutes(5);
     /// Minimum weight factor between Newton step and projected gradient step.
     real_t τ_min = 1. / 256;
-    /// Minimum step size.
-    real_t γ_min = 1e-30;
+    /// Minimum Lipschitz constant estimate.
+    real_t L_min = 1e-5;
+    /// Maximum Lipschitz constant estimate.
+    real_t L_max = 1e9;
     /// Factor used in update for exponentially weighted nonmonotone line search.
     /// Zero means monotone line search.
     real_t nonmonotone_linesearch = 0;
@@ -126,11 +128,11 @@ class StructuredPANOCLBFGSSolver {
     LBFGS lbfgs;
 };
 
-template <class InnerSolver>
+template <class InnerSolverStats>
 struct InnerStatsAccumulator;
 
 template <>
-struct InnerStatsAccumulator<StructuredPANOCLBFGSSolver> {
+struct InnerStatsAccumulator<StructuredPANOCLBFGSSolver::Stats> {
     std::chrono::microseconds elapsed_time;
     unsigned iterations          = 0;
     unsigned linesearch_failures = 0;
@@ -141,9 +143,9 @@ struct InnerStatsAccumulator<StructuredPANOCLBFGSSolver> {
     real_t sum_τ                 = 0;
 };
 
-inline InnerStatsAccumulator<StructuredPANOCLBFGSSolver> &
-operator+=(InnerStatsAccumulator<StructuredPANOCLBFGSSolver> &acc,
-           const StructuredPANOCLBFGSSolver::Stats s) {
+inline InnerStatsAccumulator<StructuredPANOCLBFGSSolver::Stats> &
+operator+=(InnerStatsAccumulator<StructuredPANOCLBFGSSolver::Stats> &acc,
+           const StructuredPANOCLBFGSSolver::Stats &s) {
     acc.iterations += s.iterations;
     acc.elapsed_time += s.elapsed_time;
     acc.linesearch_failures += s.linesearch_failures;

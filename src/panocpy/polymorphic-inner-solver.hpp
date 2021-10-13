@@ -152,17 +152,17 @@ struct PolymorphicInnerSolverWrapper {
     py::object get_params() const { return solver->get_params(); }
 };
 
-template <class InnerSolver>
+template <class InnerSolverStats>
 struct InnerStatsAccumulator;
 
 template <>
-struct InnerStatsAccumulator<PolymorphicInnerSolverWrapper> {
+struct InnerStatsAccumulator<PolymorphicInnerSolverWrapper::Stats> {
     std::shared_ptr<PolymorphicInnerSolverStatsAccumulatorBase> ptr;
     py::dict to_dict() const { return ptr->to_dict(); }
 };
 
-inline InnerStatsAccumulator<PolymorphicInnerSolverWrapper> &
-operator+=(InnerStatsAccumulator<PolymorphicInnerSolverWrapper> &acc,
+inline InnerStatsAccumulator<PolymorphicInnerSolverWrapper::Stats> &
+operator+=(InnerStatsAccumulator<PolymorphicInnerSolverWrapper::Stats> &acc,
            const PolymorphicInnerSolverWrapper::Stats &s) {
     assert(s.ptr);
     if (not acc.ptr)
@@ -202,18 +202,7 @@ class PolymorphicInnerSolverTrampoline : public PolymorphicInnerSolverBase {
     }
 };
 
-template <class T>
-struct is_PANOCSolver : std::false_type {};
-template <class DirectionProviderT>
-struct is_PANOCSolver<PANOCSolver<DirectionProviderT>> : std::true_type {};
-template <class DirectionProviderT>
-struct is_PANOCSolver<PANOCSolverFull<DirectionProviderT>> : std::true_type {};
-template <class T>
-constexpr bool is_PANOCSolver_v = is_PANOCSolver<T>::value;
-
-template <class InnerSolver>
-inline std::enable_if_t<is_PANOCSolver_v<InnerSolver>, py::dict>
-stats_to_dict(const typename InnerSolver::Stats &s) {
+inline py::dict stats_to_dict(const PANOCStats &s) {
     using py::operator""_a;
     return py::dict{
         "status"_a              = s.status,
@@ -229,9 +218,7 @@ stats_to_dict(const typename InnerSolver::Stats &s) {
     };
 }
 
-template <class InnerSolver>
-inline std::enable_if_t<is_PANOCSolver_v<InnerSolver>, py::dict>
-stats_to_dict(const InnerStatsAccumulator<InnerSolver> &s) {
+inline py::dict stats_to_dict(const InnerStatsAccumulator<PANOCStats> &s) {
     using py::operator""_a;
     return py::dict{
         "elapsed_time"_a        = s.elapsed_time,
@@ -245,7 +232,6 @@ stats_to_dict(const InnerStatsAccumulator<InnerSolver> &s) {
     };
 }
 
-template <class InnerSolver>
 inline py::dict stats_to_dict(const StructuredPANOCLBFGSSolver::Stats &s) {
     using py::operator""_a;
     return py::dict{
@@ -262,7 +248,6 @@ inline py::dict stats_to_dict(const StructuredPANOCLBFGSSolver::Stats &s) {
     };
 }
 
-template <class InnerSolver>
 inline py::dict stats_to_dict(const PGASolver::Stats &s) {
     using py::operator""_a;
     return py::dict{
@@ -273,7 +258,6 @@ inline py::dict stats_to_dict(const PGASolver::Stats &s) {
     };
 }
 
-template <class InnerSolver>
 inline py::dict stats_to_dict(const GAAPGASolver::Stats &s) {
     using py::operator""_a;
     return py::dict{
@@ -285,9 +269,8 @@ inline py::dict stats_to_dict(const GAAPGASolver::Stats &s) {
     };
 }
 
-template <class InnerSolver>
-inline py::dict
-stats_to_dict(const InnerStatsAccumulator<StructuredPANOCLBFGSSolver> &s) {
+inline py::dict stats_to_dict(
+    const InnerStatsAccumulator<StructuredPANOCLBFGSSolver::Stats> &s) {
     using py::operator""_a;
     return py::dict{
         "elapsed_time"_a        = s.elapsed_time,
@@ -301,8 +284,8 @@ stats_to_dict(const InnerStatsAccumulator<StructuredPANOCLBFGSSolver> &s) {
     };
 }
 
-template <class InnerSolver>
-inline py::dict stats_to_dict(const InnerStatsAccumulator<PGASolver> &s) {
+inline py::dict
+stats_to_dict(const InnerStatsAccumulator<PGASolver::Stats> &s) {
     using py::operator""_a;
     return py::dict{
         "elapsed_time"_a = s.elapsed_time,
@@ -310,8 +293,8 @@ inline py::dict stats_to_dict(const InnerStatsAccumulator<PGASolver> &s) {
     };
 }
 
-template <class InnerSolver>
-inline py::dict stats_to_dict(const InnerStatsAccumulator<GAAPGASolver> &s) {
+inline py::dict
+stats_to_dict(const InnerStatsAccumulator<GAAPGASolver::Stats> &s) {
     using py::operator""_a;
     return py::dict{
         "elapsed_time"_a               = s.elapsed_time,
@@ -333,15 +316,13 @@ class PolymorphicInnerSolver : public PolymorphicInnerSolverBase {
 
     struct WrappedStatsAccumulator
         : PolymorphicInnerSolverStatsAccumulatorBase {
-        InnerStatsAccumulator<InnerSolver> acc;
+        InnerStatsAccumulator<typename InnerSolver::Stats> acc;
         void
         accumulate(const PolymorphicInnerSolverStatsBase &bstats) override {
             auto &stats = dynamic_cast<const WrappedStats &>(bstats).stats;
             acc += stats;
         }
-        py::dict to_dict() const override {
-            return stats_to_dict<InnerSolver>(acc);
-        }
+        py::dict to_dict() const override { return stats_to_dict(acc); }
     };
     struct WrappedStats : PolymorphicInnerSolverStatsBase {
         using Stats = typename InnerSolver::Stats;
@@ -353,9 +334,7 @@ class PolymorphicInnerSolver : public PolymorphicInnerSolverBase {
                 PolymorphicInnerSolverStatsAccumulatorBase>(
                 std::make_shared<WrappedStatsAccumulator>());
         }
-        py::dict to_dict() const override {
-            return stats_to_dict<InnerSolver>(stats);
-        }
+        py::dict to_dict() const override { return stats_to_dict(stats); }
     };
 
     Stats operator()(
@@ -515,7 +494,7 @@ inline py::dict stats_to_dict(const PolymorphicALMSolver::Stats &s) {
 
 template <class InnerSolver>
 inline py::dict
-stats_to_dict(typename pa::ALMSolverFull<InnerSolver>::Stats &s) {
+stats_to_dict(typename pa::ALMSolverFull<PANOCSolverFull<>>::Stats &s) {
     using py::operator""_a;
     return py::dict{
         "outer_iterations"_a           = s.outer_iterations,

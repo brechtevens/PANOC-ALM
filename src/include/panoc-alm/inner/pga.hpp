@@ -22,8 +22,10 @@ struct PGAParams {
     unsigned max_iter = 100;
     /// Maximum duration.
     std::chrono::microseconds max_time = std::chrono::minutes(5);
-    /// Minimum step size.
-    real_t γ_min = 1e-30;
+    /// Minimum Lipschitz constant estimate.
+    real_t L_min = 1e-5;
+    /// Maximum Lipschitz constant estimate.
+    real_t L_max = 1e9;
     /// What stop criterion to use.
     PANOCStopCrit stop_crit = PANOCStopCrit::ApproxKKT;
 
@@ -129,7 +131,7 @@ PGASolver::operator()(const Problem &problem,        // in
 
     // Wrappers for helper functions that automatically pass along any arguments
     // that are constant within PGA (for readability in the main algorithm)
-    auto calc_ψ_ŷ = [&problem, &y, &Σ](const vec &x, vec &ŷ) {
+    auto calc_ψ_ŷ = [&problem, &y, &Σ](crvec x, rvec ŷ) {
         return detail::calc_ψ_ŷ(problem, x, y, Σ, ŷ);
     };
     auto calc_ψ_grad_ψ = [&problem, &y, &Σ, &work_n, &work_m](crvec x,
@@ -151,7 +153,7 @@ PGASolver::operator()(const Problem &problem,        // in
                               rvec pₖ, rvec ŷx̂ₖ, real_t &ψx̂ₖ, real_t &pₖᵀpₖ,
                               real_t &grad_ψₖᵀpₖ, real_t &Lₖ, real_t &γₖ) {
         return detail::descent_lemma(
-            problem, params.quadratic_upperbound_tolerance_factor, params.γ_min,
+            problem, params.quadratic_upperbound_tolerance_factor, params.L_max,
             xₖ, ψₖ, grad_ψₖ, y, Σ, x̂ₖ, pₖ, ŷx̂ₖ, ψx̂ₖ, pₖᵀpₖ, grad_ψₖᵀpₖ, Lₖ, γₖ);
     };
     auto print_progress = [&](unsigned k, real_t ψₖ, crvec grad_ψₖ, crvec pₖ,
@@ -171,6 +173,7 @@ PGASolver::operator()(const Problem &problem,        // in
     if (params.Lipschitz.L₀ <= 0) {
         Lₖ = detail::initial_lipschitz_estimate(
             problem, xₖ, y, Σ, params.Lipschitz.ε, params.Lipschitz.δ,
+            params.L_min, params.L_max,
             /* in ⟹ out */ ψₖ, grad_ψₖ, x̂ₖ, grad_ψx̂ₖ, work_n, work_m);
     }
     // Initial Lipschitz constant provided by the user
@@ -267,17 +270,18 @@ PGASolver::operator()(const Problem &problem,        // in
     throw std::logic_error("[PGA]   loop error");
 }
 
-template <class InnerSolver>
+template <class InnerSolverStats>
 struct InnerStatsAccumulator;
 
 template <>
-struct InnerStatsAccumulator<PGASolver> {
+struct InnerStatsAccumulator<PGASolver::Stats> {
     std::chrono::microseconds elapsed_time;
     unsigned iterations = 0;
 };
 
-inline InnerStatsAccumulator<PGASolver> &
-operator+=(InnerStatsAccumulator<PGASolver> &acc, const PGASolver::Stats s) {
+inline InnerStatsAccumulator<PGASolver::Stats> &
+operator+=(InnerStatsAccumulator<PGASolver::Stats> &acc,
+           const PGASolver::Stats &s) {
     acc.elapsed_time += s.elapsed_time;
     acc.iterations += s.iterations;
     return acc;

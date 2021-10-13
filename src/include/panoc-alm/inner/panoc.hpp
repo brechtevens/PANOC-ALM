@@ -93,7 +93,7 @@ PANOCSolver<DirectionProviderT>::operator()(
                               rvec pₖ, rvec ŷx̂ₖ, real_t &ψx̂ₖ, real_t &pₖᵀpₖ,
                               real_t &grad_ψₖᵀpₖ, real_t &Lₖ, real_t &γₖ) {
         return detail::descent_lemma(
-            problem, params.quadratic_upperbound_tolerance_factor, params.γ_min,
+            problem, params.quadratic_upperbound_tolerance_factor, params.L_max,
             xₖ, ψₖ, grad_ψₖ, y, Σ, x̂ₖ, pₖ, ŷx̂ₖ, ψx̂ₖ, pₖᵀpₖ, grad_ψₖᵀpₖ, Lₖ, γₖ);
     };
     auto print_progress = [&](unsigned k, real_t ψₖ, crvec grad_ψₖ,
@@ -113,6 +113,7 @@ PANOCSolver<DirectionProviderT>::operator()(
     if (params.Lipschitz.L₀ <= 0) {
         Lₖ = detail::initial_lipschitz_estimate(
             problem, xₖ, y, Σ, params.Lipschitz.ε, params.Lipschitz.δ,
+            params.L_min, params.L_max,
             /* in ⟹ out */ ψₖ, grad_ψₖ, x̂ₖ, grad_̂ψₖ, work_n, work_m);
     }
     // Initial Lipschitz constant provided by the user
@@ -394,7 +395,7 @@ PANOCSolverFull<DirectionProviderT>::operator()(
                               rvec pₖ, rvec ŷx̂ₖ1, rvec ŷx̂ₖ2, real_t &ψx̂ₖ, real_t &pₖᵀpₖ,
                               real_t &grad_ψₖᵀpₖ, real_t &Lₖ, real_t &γₖ) {
         return detail::descent_lemma(
-            problem, params.quadratic_upperbound_tolerance_factor, params.γ_min,
+            problem, params.quadratic_upperbound_tolerance_factor, params.L_max,
             xₖ, ψₖ, grad_ψₖ, y, Σ1, Σ2, x̂ₖ, pₖ, ŷx̂ₖ1, ŷx̂ₖ2, ψx̂ₖ, pₖᵀpₖ, grad_ψₖᵀpₖ, Lₖ, γₖ);
     };
     auto print_progress = [&](unsigned k, real_t ψₖ, crvec grad_ψₖ,
