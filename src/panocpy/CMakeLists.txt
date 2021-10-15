@@ -25,8 +25,10 @@ if (PANOC_ALM_PYBIND11_RESULT EQUAL 0)
         ASAN_POSTFIX ""
         TSAN_POSTFIX ""
         CXX_VISIBILITY_PRESET hidden
+        C_VISIBILITY_PRESET hidden
         INSTALL_RPATH "${PANOCPY_RPATH}"
     )
+    target_link_options(_panocpy PRIVATE "LINKER:--exclude-libs,ALL")
     target_compile_definitions(_panocpy PRIVATE PANOCPY_MODULE_NAME=_panocpy)
     if (TARGET panoc-alm::casadi-loader)
         target_compile_definitions(_panocpy PRIVATE PANOCPY_HAVE_CASADI)
